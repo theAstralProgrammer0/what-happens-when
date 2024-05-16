@@ -346,26 +346,80 @@ the TTL field reaches zero or if the current router has no space in its queue
 
 This send and receive happens multiple times following the TCP connection flow:
 
+TCP 3-way Handshake
+-------------------
 * Client chooses an initial sequence number (ISN) and sends the packet to the
   server with the SYN bit set to indicate it is setting the ISN
+
 * Server receives SYN and if it's in an agreeable mood:
    * Server chooses its own initial sequence number
    * Server sets SYN to indicate it is choosing its ISN
    * Server copies the (client ISN +1) to its ACK field and adds the ACK flag
      to indicate it is acknowledging receipt of the first packet
+
 * Client acknowledges the connection by sending a packet:
    * Increases its own sequence number
    * Increases the receiver acknowledgment number
    * Sets ACK field
+
+TCP Connection Flow
+-------------------
 * Data is transferred as follows:
+   * After the TCP 3-way handshake, SEQ tracks the bytes sent and ACK tracks
+     the bytes received.
    * As one side sends N data bytes, it increases its SEQ by that number
    * When the other side acknowledges receipt of that packet (or a string of
      packets), it sends an ACK packet with the ACK value equal to the last
-     received sequence from the other
+     received sequence from the other, confirming it's been received.
+
 * To close the connection:
    * The closer sends a FIN packet
    * The other sides ACKs the FIN packet and sends its own FIN
    * The closer acknowledges the other side's FIN with an ACK
+
+* TCP Handles dropped or lost packets as follows:
+   * When a packet is sent, TCP retains a copy in cache
+     and starts a timer.
+   * The period it takes to resend a transmission is known as
+     ``re-transmission timeout``
+   * If it is received, an acknowledgment is sent back. 
+   * If not, sender re-transmits when the timer expires. 
+   * This process ensures data transmission reliability 
+     despite network issues.
+   * The mechanism works bi-directionally.
+   * If the receiver's ACK packet gets dropped, 
+     the sender re-transmits.
+   * This prompts the receiver to resend the acknowledgment.
+   * This bidirectional approach ensures data integrity and continuity
+     even in the face of network disruptions. 
+   * TCP's use of re-transmission timers and packet caching 
+     ensures dropped packets are recovered.
+
+* TCP performs ``Flow Control`` as follows:
+   * After the TCP 3-way handshake, sender learns receiver's "receive window size"
+     from the TCP header
+   * This ensures packets are sent in compliance with receiver's reception capabilities.
+   * The continual inclusion of window size in segments allows for real-time adjustments, 
+     facilitating flow control.
+   * If receiver is overwhelmed with data, it can temporarily halt sender's transmission 
+     by reducing the window size to zero.
+   * This pause grants receiver time to process incoming data or manage other communications.
+   * Bi-directional flow control ensures adaptation in data transmission rates. 
+   * As receiver adjusts the window size, sender synchronizes its transmission accordingly.
+   * This optimizes data flow between them, and the dynamic coordination enhances network 
+     efficiency and reliability.
+
+* TCP optimization in ``RFC 1122`` addressed the issue of excessive acknowledgments: 
+   * Delayed acknowledgment allows the receiver to accumulate packets from the sender 
+     without immediately acknowledging each one.
+   * Instead, the receiver sends a single acknowledgment covering multiple received packets,
+     reducing network overhead.
+   * It maintains the efficiency of TCP communication by reducing the ACKs in flight by multiples of 2.
+   * Even in cases where the sender transmits an odd number of packets, the delayed acknowledgment RFC
+     mandates that acknowledgments be sent for every other packet or within a time frame of 
+     500 milliseconds from the last packet received. 
+   * This ensures that acknowledgments are generated even in scenarios with variable packet counts.
+
 
 TLS handshake
 -------------
@@ -413,6 +467,7 @@ control`_. This varies depending on the sender; the most common algorithms are
 * After reaching the slow-start threshold, the window increases additively for
   each packet acknowledged. If a packet is dropped, the window reduces
   exponentially until another packet is acknowledged.
+Another algorithm for ``TCP congestion control`` is described in the ``TCP`` section.
 
 HTTP protocol
 -------------
